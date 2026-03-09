@@ -48,7 +48,7 @@ export function markdownToSections(markdown, options = {}) {
         bgColor: '#f8f8f8',
         borderColor: '#3b82f6',
         children: [
-          { type: 'heading', level: 2, text, emoji: '📌' }
+          { type: 'heading', level: 2, text }
         ]
       });
       i++;
@@ -62,7 +62,7 @@ export function markdownToSections(markdown, options = {}) {
         type: 'heading',
         level: 3,
         text,
-        emoji: '▸'
+        
       });
       i++;
       continue;

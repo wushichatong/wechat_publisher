@@ -1,21 +1,20 @@
 ---
 name: wechat-publisher
-description: 独立的微信公众号文章发布工具。生成文章、AI 生图、直接发布到微信公众号草稿箱，无需预览。可分享给其他 OpenClaw 用户。
+description: 独立的微信公众号文章发布工具。生成文章、AI 生图、直接发布到微信公众号草稿箱。内置 Gemini 生图模块，不依赖外部 skill。
 trigger: 当用户要求"发布微信文章"、"写公众号"、"直接发微信"时触发
 ---
 
 # 微信公众号发布 Skill
 
-独立的微信公众号文章发布工具，不依赖任务中心，直接调用微信 API 发布。
+独立的微信公众号文章发布工具，不依赖外部 skill，直接调用微信 API 发布。
 
 ## 特性
 
 - ✅ **直接发布**：无需预览，直接同步到微信公众号草稿箱
-- ✅ **AI 生图**：集成 Gemini Pro 自动生成封面和插图
-- ✅ **智能标题**：AI 生成 5-8 个候选标题供选择
+- ✅ **内置生图**：集成 Gemini Pro 生图模块，不依赖外部 skill
 - ✅ **自动排版**：转换为微信兼容的 HTML 格式
 - ✅ **图片上传**：自动上传图片到微信 CDN
-- ✅ **独立运行**：不依赖任务中心，可独立分享
+- ✅ **独立运行**：完全独立，可直接分享
 
 ## 配置
 
@@ -25,6 +24,8 @@ trigger: 当用户要求"发布微信文章"、"写公众号"、"直接发微信
 WECHAT_APPID=your_appid
 WECHAT_APPSECRET=your_appsecret
 GEMINI_API_KEY=your_gemini_key  # 用于生图
+GEMINI_PRO_PROXY=http://127.0.0.1:7890  # 代理（可选）
+WECHAT_DEFAULT_AUTHOR=龙虾  # 默认作者（可选）
 ```
 
 ## 使用方法

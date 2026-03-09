@@ -12,12 +12,9 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import crypto from 'crypto';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { markdownToSections } from './markdown-to-sections.mjs';
 import { wxRenderSections } from './wechat-renderer.mjs';
-
-const execAsync = promisify(exec);
+import { generateImage } from './gemini-imagegen.mjs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ============ 配置（从环境变量读取）============
@@ -124,6 +121,15 @@ async function uploadImage(imagePath) {
 
 async function createDraft(article) {
   const token = await getAccessToken();
+  
+  // 打印调试信息
+  console.log('📋 创建草稿参数:');
+  console.log('  - 标题:', article.title);
+  console.log('  - 作者:', article.author);
+  console.log('  - 内容长度:', article.content?.length || 0);
+  console.log('  - thumb_media_id:', article.thumbMediaId || '(无)');
+  console.log('  - 内容前100字符:', article.content?.substring(0, 100) || '(空)');
+  
   const result = await httpsRequest(
     `https://api.weixin.qq.com/cgi-bin/draft/add?access_token=${token}`,
     {
@@ -223,45 +229,27 @@ async function generateCover(title, content) {
 - 色彩鲜明，吸引眼球`;
 
   const outputPath = `/tmp/wechat-cover-${Date.now()}.png`;
-  const skillsDir = path.resolve(__dirname, '../..');
-  const imagegenScript = path.join(skillsDir, 'gemini-imagegen/scripts/imagegen.py');
-  
-  if (!fs.existsSync(imagegenScript)) {
-    console.log('⚠️  未找到 gemini-imagegen skill，跳过封面生成');
-    return null;
-  }
   
   console.log('🎨 生成封面图...');
   try {
-    await execAsync(
-      `uv run ${imagegenScript} --prompt "${prompt}" --filename ${outputPath} --model pro --timeout 600`,
-      { env: { ...process.env, GEMINI_API_KEY } }
-    );
+    await generateImage(prompt, outputPath, GEMINI_API_KEY, {
+      model: 'gemini-3-pro-image-preview',
+      timeout: 600000
+    });
+    
+    console.log('✅ 封面生成完成');
+    
+    // 检查文件是否真的存在
+    if (!fs.existsSync(outputPath)) {
+      console.error('❌ 封面文件不存在:', outputPath);
+      return null;
+    }
     
     // 检查文件大小
     const stats = fs.statSync(outputPath);
     const sizeMB = stats.size / (1024 * 1024);
+    console.log(`📊 封面大小: ${sizeMB.toFixed(2)}MB`);
     
-    if (sizeMB > 1.5) {
-      console.log(`⚠️  封面图过大 (${sizeMB.toFixed(2)}MB)，压缩中...`);
-      // 简单压缩：重新保存为 JPEG 质量 85
-      const { exec: execSync } = await import('child_process');
-      const { promisify } = await import('util');
-      const execSyncAsync = promisify(execSync);
-      
-      try {
-        await execSyncAsync(`convert ${outputPath} -quality 85 ${outputPath}.jpg`);
-        fs.unlinkSync(outputPath);
-        fs.renameSync(`${outputPath}.jpg`, outputPath);
-        const newStats = fs.statSync(outputPath);
-        const newSizeMB = newStats.size / (1024 * 1024);
-        console.log(`✅ 压缩完成 (${newSizeMB.toFixed(2)}MB)`);
-      } catch (e) {
-        console.log('⚠️  压缩失败，使用原图');
-      }
-    }
-    
-    console.log('✅ 封面生成完成');
     return outputPath;
   } catch (error) {
     console.error('❌ 封面生成失败:', error.message);
@@ -324,7 +312,7 @@ async function main() {
   // 上传文章中的其他图片到微信 CDN
   const processedHTML = await uploadInlineImages(html);
   
-  console.log('✅ 格式转换完成\n');
+  console.log(`✅ 格式转换完成（HTML 长度: ${processedHTML.length} 字节）\n`);
   
   // 3. 上传封面
   if (coverPath && fs.existsSync(coverPath)) {
