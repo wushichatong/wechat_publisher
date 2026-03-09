@@ -59,13 +59,13 @@ AI 会自动调用这个 skill 完成发布。
 node ~/.openclaw/workspace/skills/wechat-publisher/scripts/publish.mjs \
   --title "文章标题" \
   --content "文章内容（Markdown）" \
-  --author "楠哥"
+  --author "龙虾"
 ```
 
 参数：
 - `--title` - 文章标题（必填）
 - `--content` - 文章内容，Markdown 格式（必填）
-- `--author` - 作者名（可选，默认"楠哥"）
+- `--author` - 作者名（可选，默认"龙虾"）
 - `--no-cover` - 不生成封面，使用默认封面
 
 ## 工作流程
