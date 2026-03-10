@@ -103,13 +103,15 @@ node ~/.openclaw/workspace/skills/wechat-publisher/scripts/publish.mjs \
 - `--author` - 作者名（可选，默认"龙虾"）
 - `--no-cover` - 不生成封面，使用默认封面
 - `--image-provider` - 生图提供方：`modelscope`（魔搭）或 `gemini`（可选，默认自动选择）
+- `--theme` - 排版主题：`default`（经典）或 `magazine`（杂志风，可选，默认 default）
 
 ### `scripts/markdown-to-sections.mjs`
 
 Markdown 解析器，将 Markdown 文本转换为 Section 数据结构：
 - 支持：H1-H3 标题、段落、有序/无序列表、引用块、代码块、分隔线、图片
-- H2 自动包装为带蓝色左边框的卡片样式
-- 自动添加 footer
+- 默认主题：H2 自动包装为带蓝色左边框的卡片样式
+- 杂志风主题（`theme: 'magazine'`）：H2 直接输出为 heading，由渲染器负责杂志风样式
+- 自动添加 footer（杂志风主题使用 "THANKS FOR READING" 风格）
 
 ### `scripts/wechat-renderer.mjs`
 
@@ -117,6 +119,7 @@ HTML 渲染器，Section 数据 → 微信兼容 HTML：
 - 所有样式纯内联（微信不支持 CSS class）
 - 代码块 macOS 风格（红黄绿三圆点 + 横向滚动）
 - 支持：标题、段落、列表、引用、代码、图片、卡片、分隔线等
+- 支持 `theme` 参数切换排版风格：`default`（经典）或 `magazine`（杂志风）
 
 ### `scripts/modelscope-imagegen.mjs`
 
@@ -241,12 +244,21 @@ macOS 风格（红黄绿三圆点）：
 
 ### 样式规范
 
-- 所有样式内联
+**默认主题（default）：**
 - 字体：17px，行高 1.75
 - 标题：h2 20px，h3 18px
 - 段落间距：20px
 - 引用块：左侧蓝色边框
 - 图片：圆角 8px，最大宽度 100%
+
+**杂志风主题（magazine）：**
+- H2 渲染为编号卡片（PART 01/02/03）+ 渐变装饰线 + 淡紫白背景
+- H3 左侧靛蓝紫竖线装饰
+- 段落行距 2.0，字间距 0.8px
+- 引用块圆角卡片 + 左侧靛蓝紫色条
+- 分隔线改为居中装饰符 `///`
+- Footer 使用 "THANKS FOR READING" + 渐变下划线
+- 主色调：靛蓝紫（`#6366f1`）→ 紫色（`#8b5cf6`）渐变
 
 ## 注意事项
 
@@ -269,10 +281,18 @@ macOS 风格（红黄绿三圆点）：
 ### 完整流程示例
 
 ```bash
+# 默认主题
 node scripts/publish.mjs \
   --title "如何使用 AI 提升工作效率" \
   --content "$(cat article.md)" \
   --author "龙虾"
+
+# 杂志风主题
+node scripts/publish.mjs \
+  --title "如何使用 AI 提升工作效率" \
+  --content "$(cat article.md)" \
+  --author "龙虾" \
+  --theme magazine
 ```
 
 脚本内部流程：
@@ -280,14 +300,13 @@ node scripts/publish.mjs \
 ```javascript
 import { markdownToSections } from './markdown-to-sections.mjs';
 import { wxRenderSections } from './wechat-renderer.mjs';
-import { generateImage } from './gemini-imagegen.mjs';
 
 // 1. 生成封面
 const coverPath = await generateCover(title, content);
 
-// 2. Markdown → Section → 微信 HTML
-const sections = markdownToSections(markdown);
-const html = wxRenderSections(sections);
+// 2. Markdown → Section → 微信 HTML（可切换主题）
+const sections = markdownToSections(markdown, { theme: 'magazine' });
+const html = wxRenderSections(sections, { theme: 'magazine' });
 
 // 3. 上传图片到微信 CDN
 const processedHTML = await uploadInlineImages(html);

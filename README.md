@@ -33,6 +33,7 @@ Markdown ──▶ Sections ──▶ WeChat HTML ──▶ Draft on WeChat MP
 - **macOS-style code blocks** — red/yellow/green dots header with horizontal scrolling
 - **Dual image generation** — ModelScope Z-Image-Turbo (China, free) + Gemini Pro (global), auto-fallback
 - **Auto image upload** — local images uploaded to WeChat CDN automatically
+- **Magazine theme** — optional "magazine-style" layout with numbered sections, gradient accents, and spacious typography
 - **Pure inline styles** — all CSS inlined for WeChat compatibility, no `<style>` tags
 
 ## Quick Start
@@ -88,6 +89,7 @@ node scripts/publish.mjs \
 | `--author` | No | Author name (default: `龙虾`) |
 | `--no-cover` | No | Skip cover image generation |
 | `--image-provider` | No | `modelscope` or `gemini` (auto-detected by default) |
+| `--theme` | No | `default` or `magazine` (default: `default`) |
 
 ## Project Structure
 
@@ -146,9 +148,13 @@ Code blocks use a macOS-style header (three colored dots) with horizontal scroll
 import { markdownToSections } from './scripts/markdown-to-sections.mjs';
 import { wxRenderSections } from './scripts/wechat-renderer.mjs';
 
+// Default theme
 const sections = markdownToSections(markdownString);
 const html = wxRenderSections(sections);
-// html is ready to paste into WeChat editor or send via API
+
+// Magazine theme — numbered sections, gradient accents, spacious layout
+const magSections = markdownToSections(markdownString, { theme: 'magazine' });
+const magHtml = wxRenderSections(magSections, { theme: 'magazine' });
 ```
 
 ## Security

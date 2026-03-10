@@ -40,17 +40,21 @@ export function markdownToSections(markdown, options = {}) {
       continue;
     }
     
-    // H2 标题（带卡片）
+    // H2 标题
     if (line.startsWith('## ')) {
       const text = line.substring(3).trim();
-      sections.push({
-        type: 'card',
-        bgColor: '#f8f8f8',
-        borderColor: '#3b82f6',
-        children: [
-          { type: 'heading', level: 2, text }
-        ]
-      });
+      if (options.theme === 'magazine') {
+        sections.push({ type: 'heading', level: 2, text });
+      } else {
+        sections.push({
+          type: 'card',
+          bgColor: '#f8f8f8',
+          borderColor: '#3b82f6',
+          children: [
+            { type: 'heading', level: 2, text }
+          ]
+        });
+      }
       i++;
       continue;
     }
@@ -160,11 +164,19 @@ export function markdownToSections(markdown, options = {}) {
   }
   
   // 添加 footer
-  sections.push({
-    type: 'footer',
-    text: '— END —',
-    subtext: '🦐 龙虾 · OpenClaw 技术分享'
-  });
+  if (options.theme === 'magazine') {
+    sections.push({
+      type: 'footer',
+      text: 'THANKS FOR READING',
+      subtext: options.footerSubtext || '🦐 龙虾 · OpenClaw 技术分享'
+    });
+  } else {
+    sections.push({
+      type: 'footer',
+      text: '— END —',
+      subtext: '🦐 龙虾 · OpenClaw 技术分享'
+    });
+  }
   
   return sections;
 }

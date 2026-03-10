@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/OpenClaw-Skills-blue?style=flat-square" alt="OpenClaw Plugin" />
+  <img src="https://img.shields.io/badge/OpenClaw-Skills-blue?style=flat-square" alt="OpenClaw Skills" />
   <img src="https://img.shields.io/badge/Node.js-18%2B-green?style=flat-square&logo=node.js" alt="Node.js 18+" />
   <img src="https://img.shields.io/badge/License-MIT-brightgreen?style=flat-square" alt="License MIT" />
   <img src="https://img.shields.io/badge/Platform-WeChat%20MP-orange?style=flat-square" alt="WeChat MP" />
@@ -33,6 +33,7 @@ Markdown ──▶ Sections ──▶ 微信 HTML ──▶ 公众号草稿箱
 - **macOS 风格代码块** — 红黄绿三圆点 + 横向滚动
 - **双通道生图** — 魔搭 Z-Image-Turbo（国内免费）+ Gemini Pro（海外），自动回退
 - **自动图片上传** — 本地图片自动上传到微信 CDN
+- **杂志风主题** — 可选杂志风排版，编号章节、渐变装饰、大留白，一键切换
 - **纯内联样式** — 所有 CSS 内联，兼容微信渲染引擎
 
 ## 快速开始
@@ -88,6 +89,7 @@ node scripts/publish.mjs \
 | `--author` | 否 | 作者名（默认：`龙虾`） |
 | `--no-cover` | 否 | 跳过封面图生成 |
 | `--image-provider` | 否 | `modelscope`（魔搭）或 `gemini`（默认自动选择） |
+| `--theme` | 否 | `default`（经典）或 `magazine`（杂志风，默认 default） |
 
 ## 项目结构
 
@@ -146,9 +148,13 @@ wechat-publisher/
 import { markdownToSections } from './scripts/markdown-to-sections.mjs';
 import { wxRenderSections } from './scripts/wechat-renderer.mjs';
 
+// 默认主题
 const sections = markdownToSections(markdownString);
 const html = wxRenderSections(sections);
-// html 可直接粘贴到微信编辑器或通过 API 发送
+
+// 杂志风主题 — 编号章节、渐变装饰、大留白排版
+const magSections = markdownToSections(markdownString, { theme: 'magazine' });
+const magHtml = wxRenderSections(magSections, { theme: 'magazine' });
 ```
 
 ## 安全性

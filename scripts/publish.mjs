@@ -211,7 +211,7 @@ async function uploadInlineImages(html) {
 // ============ Markdown 转 HTML（使用 wechat-renderer）============
 function markdownToWechatHTML(markdown, options = {}) {
   const sections = markdownToSections(markdown, options);
-  return wxRenderSections(sections);
+  return wxRenderSections(sections, { theme: options.theme });
 }
 
 // ============ 生成封面 ============
@@ -286,9 +286,10 @@ async function main() {
   const author = getArg('--author') || process.env.WECHAT_DEFAULT_AUTHOR || '龙虾';
   const noCover = args.includes('--no-cover');
   const imageProvider = getArg('--image-provider'); // modelscope | gemini
+  const theme = getArg('--theme') || 'default'; // default | magazine
   
   if (!title || !content) {
-    console.error('用法: node publish.mjs --title "标题" --content "内容" [--author "作者"] [--no-cover] [--image-provider modelscope|gemini]');
+    console.error('用法: node publish.mjs --title "标题" --content "内容" [--author "作者"] [--no-cover] [--image-provider modelscope|gemini] [--theme default|magazine]');
     process.exit(1);
   }
   
@@ -324,7 +325,7 @@ async function main() {
   }
   
   // 转换 Markdown 为 HTML，并插入封面图
-  const html = markdownToWechatHTML(content, { coverImage: coverImageUrl });
+  const html = markdownToWechatHTML(content, { coverImage: coverImageUrl, theme });
   
   // 上传文章中的其他图片到微信 CDN
   const processedHTML = await uploadInlineImages(html);
