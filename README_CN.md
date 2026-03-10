@@ -163,6 +163,12 @@ const html = wxRenderSections(sections);
 
 [MIT](./LICENSE)
 
+## 请我喝咖啡
+
+如果这个项目对你有帮助，欢迎支持我：
+
+[![Buy Me A Coffee](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/xiaonan0527)
+
 ## 作者
 
 **楠哥** ([@xiaonan0527](https://github.com/xiaonan0527))
