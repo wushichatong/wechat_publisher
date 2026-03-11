@@ -57,6 +57,20 @@ cd wechat-publisher
 cp .env.example .env
 ```
 
+#### Get WeChat AppID and AppSecret
+
+1. Log in to [WeChat Developer Platform](https://developers.weixin.qq.com/)
+2. Navigate to your Official Account (公众号) → **Development** → **Basic Configuration** (开发 → 基本配置)
+3. Find **AppID** (应用ID) — this is your `WECHAT_APPID`
+4. Click **Generate** (生成) next to **AppSecret** (应用密钥) to create a new secret
+5. Copy the AppSecret immediately (it will only be shown once) — this is your `WECHAT_APPSECRET`
+
+<img width="3788" height="1372" alt="Image" src="https://github.com/user-attachments/assets/271d7449-2e75-4294-b2a4-912979f7ce2d" />
+
+> **Important**: If you're running this tool on a cloud server, you must add your server's public IP address to the **IP Whitelist** (IP白名单) in the same Basic Configuration page. Otherwise, API calls will be rejected by WeChat.
+
+#### Set Up Environment Variables
+
 Edit `.env` with your credentials:
 
 ```env
@@ -185,3 +199,5 @@ If you find this project helpful, consider supporting me:
 ## Author
 
 **楠哥** ([@xiaonan0527](https://github.com/xiaonan0527))
+
+![Image](https://github.com/user-attachments/assets/2c8a4893-3e11-478c-a063-a9de03e596dc)

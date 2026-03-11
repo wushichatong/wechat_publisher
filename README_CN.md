@@ -57,6 +57,20 @@ cd wechat-publisher
 cp .env.example .env
 ```
 
+#### 获取微信公众号 AppID 和 AppSecret
+
+1. 登录 [微信开发者平台](https://developers.weixin.qq.com/)
+2. 进入你的公众号 → **开发** → **基本配置**
+3. 找到 **AppID**（应用ID），这就是你的 `WECHAT_APPID`
+4. 点击 **AppSecret**（应用密钥）旁边的 **生成** 按钮，创建新的密钥
+5. 立即复制 AppSecret（仅显示一次），这就是你的 `WECHAT_APPSECRET`
+
+<img width="3788" height="1372" alt="Image" src="https://github.com/user-attachments/assets/271d7449-2e75-4294-b2a4-912979f7ce2d" />
+
+> **重要提示**：如果你在云服务器上运行此工具，必须在同一基本配置页面中将服务器的公网 IP 地址添加到 **IP 白名单**（IP白名单）中。否则，微信 API 调用将被拒绝。
+
+#### 设置环境变量
+
 编辑 `.env`，填入你的凭证：
 
 ```env
@@ -185,3 +199,5 @@ const magHtml = wxRenderSections(magSections, { theme: 'magazine' });
 ## 作者
 
 **楠哥** ([@xiaonan0527](https://github.com/xiaonan0527))
+
+![Image](https://github.com/user-attachments/assets/2c8a4893-3e11-478c-a063-a9de03e596dc)
