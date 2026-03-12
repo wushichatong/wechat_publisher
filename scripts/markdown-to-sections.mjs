@@ -153,6 +153,21 @@ export function markdownToSections(markdown, options = {}) {
       continue;
     }
 
+    // 独立的图片或视频行 ![alt](src)
+    const mediaMatch = line.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (mediaMatch) {
+      const alt = mediaMatch[1];
+      const src = mediaMatch[2];
+      const ext = src.split('.').pop().toLowerCase();
+      if (['mp4', 'mov', 'avi', 'wmv', 'webm'].includes(ext)) {
+        sections.push({ type: 'video', src, alt });
+      } else {
+        sections.push({ type: 'image', src, alt });
+      }
+      i++;
+      continue;
+    }
+
     // 分隔线
     if (line === '---' || line === '***' || line === '___') {
       sections.push({ type: 'divider' });

@@ -309,7 +309,7 @@ const sections = markdownToSections(markdown, { theme: 'magazine' });
 const html = wxRenderSections(sections, { theme: 'magazine' });
 
 // 3. 上传图片到微信 CDN
-const processedHTML = await uploadInlineImages(html);
+const processedHTML = await uploadInlineMedia(html);
 const thumbMediaId = await uploadImage(coverPath);
 
 // 4. 创建草稿

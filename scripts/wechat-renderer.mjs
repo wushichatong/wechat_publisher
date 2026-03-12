@@ -176,7 +176,14 @@ function wxRenderSection(s) {
       }
       return html;
     }
-    
+
+    case 'video': {
+      const videoStyle = 'max-width:100%;width:100%;border-radius:8px;margin:0 0 20px;display:block;';
+      let html = `<video src="${wxEsc(s.src)}" controls style="${videoStyle}"></video>`;
+      if (s.alt) html += `<p style="${WX_STYLES.imgCaption}">${wxEsc(s.alt)}</p>`;
+      return html;
+    }
+
     case 'table': {
       const aligns = s.aligns || [];
       const ths = (s.headers || []).map((h, ci) => {
@@ -279,6 +286,13 @@ function wxRenderSectionMagazine(s, partCounter) {
     case 'image': {
       let html = `<img src="${wxEsc(s.src)}" alt="${wxEsc(s.alt || '')}" style="${WX_STYLES.img}"/>`;
       if (s.caption) html += `<p style="${WX_STYLES.imgCaption}">${wxEsc(s.caption)}</p>`;
+      return html;
+    }
+
+    case 'video': {
+      const videoStyle = 'max-width:100%;width:100%;border-radius:12px;margin:0 0 24px;display:block;';
+      let html = `<video src="${wxEsc(s.src)}" controls style="${videoStyle}"></video>`;
+      if (s.alt) html += `<p style="${WX_STYLES.imgCaption}">${wxEsc(s.alt)}</p>`;
       return html;
     }
 

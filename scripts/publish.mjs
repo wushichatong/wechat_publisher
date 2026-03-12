@@ -62,15 +62,20 @@ function httpsRequest(url, options = {}) {
   });
 }
 
-function httpsPostMultipart(url, fieldName, filePath, mimeType = 'image/png') {
+function httpsPostMultipart(url, fieldName, filePath, mimeType = 'image/png', extraFields = {}) {
   return new Promise((resolve, reject) => {
     const u = new URL(url);
     const boundary = '----FormBoundary' + crypto.randomBytes(8).toString('hex');
     const fileName = path.basename(filePath);
     const fileData = fs.readFileSync(filePath);
-    const header = `--${boundary}\r\nContent-Disposition: form-data; name="${fieldName}"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`;
-    const footer = `\r\n--${boundary}--\r\n`;
-    const bodyBuffer = Buffer.concat([Buffer.from(header), fileData, Buffer.from(footer)]);
+    const parts = [];
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${fieldName}"; filename="${fileName}"\r\nContent-Type: ${mimeType}\r\n\r\n`));
+    parts.push(fileData);
+    for (const [key, value] of Object.entries(extraFields)) {
+      parts.push(Buffer.from(`\r\n--${boundary}\r\nContent-Disposition: form-data; name="${key}"\r\n\r\n${value}`));
+    }
+    parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+    const bodyBuffer = Buffer.concat(parts);
     const opts = {
       hostname: u.hostname,
       path: u.pathname + u.search,
@@ -91,6 +96,17 @@ function httpsPostMultipart(url, fieldName, filePath, mimeType = 'image/png') {
     req.write(bodyBuffer);
     req.end();
   });
+}
+
+const MIME_TYPES = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif', '.webp': 'image/webp',
+  '.mp4': 'video/mp4', '.mov': 'video/quicktime',
+  '.avi': 'video/x-msvideo', '.wmv': 'video/x-ms-wmv',
+};
+
+function guessMimeType(filePath) {
+  return MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream';
 }
 
 // ============ 微信 API ============
@@ -119,6 +135,23 @@ async function uploadImage(imagePath) {
     return result.media_id;
   }
   throw new Error(`上传图片失败: ${JSON.stringify(result)}`);
+}
+
+async function uploadVideo(videoPath, title, introduction = '') {
+  const token = await getAccessToken();
+  const mimeType = guessMimeType(videoPath);
+  const description = JSON.stringify({ title, introduction });
+  const result = await httpsPostMultipart(
+    `https://api.weixin.qq.com/cgi-bin/material/add_material?access_token=${token}&type=video`,
+    'media',
+    videoPath,
+    mimeType,
+    { description }
+  );
+  if (result.media_id) {
+    return { mediaId: result.media_id, url: result.url || '' };
+  }
+  throw new Error(`上传视频失败: ${JSON.stringify(result)}`);
 }
 
 async function createDraft(article) {
@@ -156,55 +189,47 @@ async function createDraft(article) {
   throw new Error(`创建草稿失败: ${JSON.stringify(result)}`);
 }
 
-// ============ 上传文章中的图片到微信 CDN ============
-async function uploadInlineImages(html) {
-  // 匹配所有本地图片路径
+// ============ 上传文章中的图片和视频到微信 CDN ============
+async function uploadInlineMedia(html) {
+  const mediaMap = {};
+
+  // 上传图片
   const imgRegex = /src="([^"]+\.(png|jpg|jpeg|gif|webp))"/gi;
   let match;
-  const imageMap = {};
-  
   while ((match = imgRegex.exec(html)) !== null) {
-    const imagePath = match[1];
-    
-    // 跳过已经是 URL 的图片
-    if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
-      continue;
-    }
-    
-    // 跳过已处理的图片
-    if (imageMap[imagePath]) {
-      continue;
-    }
-    
-    // 检查文件是否存在
-    if (!fs.existsSync(imagePath)) {
-      console.log(`⚠️  图片不存在: ${imagePath}`);
-      continue;
-    }
-    
+    const filePath = match[1];
+    if (filePath.startsWith('http://') || filePath.startsWith('https://') || mediaMap[filePath]) continue;
+    if (!fs.existsSync(filePath)) { console.log(`⚠️  图片不存在: ${filePath}`); continue; }
     try {
-      console.log(`📤 上传图片: ${path.basename(imagePath)}`);
+      console.log(`📤 上传图片: ${path.basename(filePath)}`);
       const token = await getAccessToken();
-      const uploadResult = await httpsPostMultipart(
+      const result = await httpsPostMultipart(
         `https://api.weixin.qq.com/cgi-bin/media/uploadimg?access_token=${token}`,
-        'media',
-        imagePath
+        'media', filePath
       );
-      
-      if (uploadResult.url) {
-        imageMap[imagePath] = uploadResult.url;
-        console.log(`✅ 图片上传成功`);
-      }
-    } catch (error) {
-      console.error(`❌ 图片上传失败: ${error.message}`);
-    }
+      if (result.url) { mediaMap[filePath] = result.url; console.log('✅ 图片上传成功'); }
+    } catch (e) { console.error(`❌ 图片上传失败: ${e.message}`); }
   }
-  
-  // 替换所有图片 URL
-  for (const [localPath, cdnUrl] of Object.entries(imageMap)) {
+
+  // 上传视频
+  const videoRegex = /src="([^"]+\.(mp4|mov|avi|wmv))"/gi;
+  while ((match = videoRegex.exec(html)) !== null) {
+    const filePath = match[1];
+    if (filePath.startsWith('http://') || filePath.startsWith('https://') || mediaMap[filePath]) continue;
+    if (!fs.existsSync(filePath)) { console.log(`⚠️  视频不存在: ${filePath}`); continue; }
+    try {
+      console.log(`📤 上传视频: ${path.basename(filePath)}`);
+      const videoTitle = path.basename(filePath, path.extname(filePath));
+      const { url } = await uploadVideo(filePath, videoTitle);
+      if (url) { mediaMap[filePath] = url; console.log('✅ 视频上传成功'); }
+      else { console.log('⚠️  视频已上传但未返回 CDN URL（media_id 已记录）'); }
+    } catch (e) { console.error(`❌ 视频上传失败: ${e.message}`); }
+  }
+
+  for (const [localPath, cdnUrl] of Object.entries(mediaMap)) {
     html = html.split(`src="${localPath}"`).join(`src="${cdnUrl}"`);
   }
-  
+
   return html;
 }
 
@@ -327,8 +352,8 @@ async function main() {
   // 转换 Markdown 为 HTML，并插入封面图
   const html = markdownToWechatHTML(content, { coverImage: coverImageUrl, theme });
   
-  // 上传文章中的其他图片到微信 CDN
-  const processedHTML = await uploadInlineImages(html);
+  // 上传文章中的图片和视频到微信 CDN
+  const processedHTML = await uploadInlineMedia(html);
   
   console.log(`✅ 格式转换完成（HTML 长度: ${processedHTML.length} 字节）\n`);
   
