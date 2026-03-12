@@ -25,6 +25,11 @@ const WX_STYLES = {
   footerSub: 'margin-top:8px;font-size:13px;color:#b2b2b2',
   card: 'margin:0 0 20px;padding:20px;border-radius:8px',
   strong: 'font-weight:700;color:#1a1a1a',
+  tableWrap: 'margin:0 0 20px;overflow-x:auto;-webkit-overflow-scrolling:touch;',
+  table: 'border-collapse:collapse;width:100%;min-width:100%;font-size:15px;line-height:1.6;',
+  th: 'padding:10px 14px;border:1px solid #e5e7eb;background-color:#f9fafb;font-weight:600;color:#1a1a1a;text-align:left;white-space:nowrap;',
+  td: 'padding:10px 14px;border:1px solid #e5e7eb;color:#333;white-space:nowrap;',
+  trEven: 'background-color:#f9fafb;',
 };
 
 function wxEsc(text) {
@@ -172,6 +177,23 @@ function wxRenderSection(s) {
       return html;
     }
     
+    case 'table': {
+      const aligns = s.aligns || [];
+      const ths = (s.headers || []).map((h, ci) => {
+        const align = aligns[ci] || 'left';
+        return `<th style="${WX_STYLES.th}text-align:${align};">${wxRichText(h)}</th>`;
+      }).join('');
+      const trs = (s.rows || []).map((row, ri) => {
+        const bgStyle = ri % 2 === 1 ? WX_STYLES.trEven : '';
+        const tds = row.map((cell, ci) => {
+          const align = aligns[ci] || 'left';
+          return `<td style="${WX_STYLES.td}text-align:${align};">${wxRichText(cell)}</td>`;
+        }).join('');
+        return `<tr style="${bgStyle}">${tds}</tr>`;
+      }).join('');
+      return `<section style="${WX_STYLES.tableWrap}"><table style="${WX_STYLES.table}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></section>`;
+    }
+
     case 'divider': {
       return `<hr style="${WX_STYLES.hr}"/>`;
     }
@@ -258,6 +280,27 @@ function wxRenderSectionMagazine(s, partCounter) {
       let html = `<img src="${wxEsc(s.src)}" alt="${wxEsc(s.alt || '')}" style="${WX_STYLES.img}"/>`;
       if (s.caption) html += `<p style="${WX_STYLES.imgCaption}">${wxEsc(s.caption)}</p>`;
       return html;
+    }
+
+    case 'table': {
+      const magTableWrap = 'margin:0 0 24px;overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;border:1px solid #e5e7eb;';
+      const magTable = 'border-collapse:collapse;width:100%;min-width:100%;font-size:15px;line-height:1.8;';
+      const magTh = `padding:12px 16px;border-bottom:2px solid ${MAG.primary};background-color:${MAG.bgLight};font-weight:700;color:#1a1a1a;white-space:nowrap;`;
+      const magTd = 'padding:10px 16px;border-bottom:1px solid #f0f0f0;color:#2d2d2d;white-space:nowrap;';
+      const aligns = s.aligns || [];
+      const ths = (s.headers || []).map((h, ci) => {
+        const align = aligns[ci] || 'left';
+        return `<th style="${magTh}text-align:${align};">${magRichText(h)}</th>`;
+      }).join('');
+      const trs = (s.rows || []).map((row, ri) => {
+        const bg = ri % 2 === 1 ? `background-color:${MAG.bgLight};` : '';
+        const tds = row.map((cell, ci) => {
+          const align = aligns[ci] || 'left';
+          return `<td style="${magTd}${bg}text-align:${align};">${magRichText(cell)}</td>`;
+        }).join('');
+        return `<tr>${tds}</tr>`;
+      }).join('');
+      return `<section style="${magTableWrap}"><table style="${magTable}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table></section>`;
     }
 
     case 'divider': {

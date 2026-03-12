@@ -138,6 +138,21 @@ export function markdownToSections(markdown, options = {}) {
       continue;
     }
     
+    // 表格（以 | 开头的行，且下一行是分隔行 |---|）
+    if (line.startsWith('|') && i + 1 < lines.length && /^\|[\s:]*-+[\s:]*\|/.test(lines[i + 1].trim())) {
+      const headerCells = parseTableRow(line);
+      const sepLine = lines[i + 1].trim();
+      const aligns = parseTableAligns(sepLine);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim().startsWith('|')) {
+        rows.push(parseTableRow(lines[i].trim()));
+        i++;
+      }
+      sections.push({ type: 'table', headers: headerCells, aligns, rows });
+      continue;
+    }
+
     // 分隔线
     if (line === '---' || line === '***' || line === '___') {
       sections.push({ type: 'divider' });
@@ -192,9 +207,31 @@ function isSpecialLine(line) {
     trimmed.startsWith('* ') ||
     trimmed.startsWith('> ') ||
     trimmed.startsWith('```') ||
+    trimmed.startsWith('|') ||
     /^\d+\.\s/.test(trimmed) ||
     trimmed === '---' ||
     trimmed === '***' ||
     trimmed === '___'
   );
+}
+
+function parseTableRow(line) {
+  return line
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map(cell => cell.trim());
+}
+
+function parseTableAligns(sepLine) {
+  return sepLine
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map(cell => {
+      const t = cell.trim();
+      if (t.startsWith(':') && t.endsWith(':')) return 'center';
+      if (t.endsWith(':')) return 'right';
+      return 'left';
+    });
 }
