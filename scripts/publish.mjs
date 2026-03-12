@@ -229,9 +229,10 @@ async function uploadInlineMedia(html) {
     html = html.split(`src="${localPath}"`).join(`src="${cdnUrl}"`);
   }
 
-  // 上传视频并替换为微信视频播放器
-  // 微信文章不支持 <video> 标签，需要用 <iframe> + media_id 嵌入
-  const videoTagRegex = /<video\s[^>]*?src="([^"]+\.(mp4|mov|avi|wmv|webm))"[^>]*?><\/video>/gi;
+  // 上传视频到素材库并替换为占位卡片
+  // 微信草稿箱 API 不支持在 content 中嵌入视频（iframe/video 均无效）
+  // 正确做法：上传到素材库，文章中放置提示卡片，用户在后台手动插入视频
+  const videoTagRegex = /<video\s[^>]*?src="([^"]+\.(mp4|mov|avi|wmv|webm))"[^>]*?><\/video>(\s*<p[^>]*>[^<]*<\/p>)?/gi;
   const videoReplacements = [];
   while ((match = videoTagRegex.exec(html)) !== null) {
     const fullTag = match[0];
@@ -239,14 +240,19 @@ async function uploadInlineMedia(html) {
     if (filePath.startsWith('http://') || filePath.startsWith('https://')) continue;
     if (!fs.existsSync(filePath)) { console.log(`⚠️  视频不存在: ${filePath}`); continue; }
     try {
-      console.log(`📤 上传视频: ${path.basename(filePath)}`);
+      console.log(`📤 上传视频到素材库: ${path.basename(filePath)}`);
       const videoTitle = path.basename(filePath, path.extname(filePath));
       const mediaId = await uploadVideo(filePath, videoTitle);
-      const iframe = `<iframe class="video_iframe" data-vidtype="2" data-mpvid="${mediaId}" ` +
-        `src="https://mp.weixin.qq.com/mp/readtemplate?t=pages/video_player_tmpl&auto=0&vid=${mediaId}" ` +
-        `style="width:100%;min-height:200px;border:0;margin:0 0 20px;" allowfullscreen></iframe>`;
-      videoReplacements.push({ from: fullTag, to: iframe });
-      console.log('✅ 视频上传成功');
+      const placeholder =
+        `<section style="margin:20px 0;padding:20px;border-radius:8px;background:#f7f8fa;border:1px dashed #d0d5dd;text-align:center;">` +
+        `<p style="margin:0 0 8px;font-size:32px;line-height:1;">🎬</p>` +
+        `<p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#1a1a1a;">${videoTitle}</p>` +
+        `<p style="margin:0;font-size:13px;color:#8c8c8c;">视频已上传到素材库，请在公众号后台编辑此文章时手动插入</p>` +
+        `<p style="margin:6px 0 0;font-size:12px;color:#b2b2b2;font-family:monospace;">media_id: ${mediaId}</p>` +
+        `</section>`;
+      videoReplacements.push({ from: fullTag, to: placeholder });
+      console.log(`✅ 视频上传成功（media_id: ${mediaId}）`);
+      console.log(`   ⚠️  微信 API 限制：文章内视频需在公众号后台手动插入`);
     } catch (e) { console.error(`❌ 视频上传失败: ${e.message}`); }
   }
   for (const { from, to } of videoReplacements) {
