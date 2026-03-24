@@ -59,18 +59,46 @@ export function markdownToSections(markdown, options = {}) {
       continue;
     }
     
-    // H3 标题
+    // H3–H6 标题
     if (line.startsWith('### ')) {
       const text = line.substring(4).trim();
       sections.push({
         type: 'heading',
         level: 3,
         text,
-        
       });
       i++;
       continue;
     }
+    if (line.startsWith('#### ')) {
+      const text = line.substring(5).trim();
+      sections.push({ type: 'heading', level: 4, text });
+      i++;
+      continue;
+    }
+    if (line.startsWith('##### ')) {
+      const text = line.substring(6).trim();
+      sections.push({ type: 'heading', level: 5, text });
+      i++;
+      continue;
+    }
+    if (line.startsWith('###### ')) {
+      const text = line.substring(7).trim();
+      sections.push({ type: 'heading', level: 6, text });
+      i++;
+      continue;
+    }
+
+    // 公式块 $$...$$
+    const blockMathMatch = line.match(/^\$\$(.*)\$\$\s*$/);
+    if (blockMathMatch) {
+      sections.push({ type: 'math', text: blockMathMatch[1], block: true });
+      i++;
+      continue;
+    }
+
+    // 行内公式 $...$（在段落/普通文本中处理）
+    // 标记行中含公式，后续在段落中统一提取
     
     // 引用块
     if (line.startsWith('> ')) {
@@ -98,11 +126,11 @@ export function markdownToSections(markdown, options = {}) {
         i++;
       }
       i++; // 跳过结束的 ```
-      sections.push({
-        type: 'code',
-        language,
-        text: codeText
-      });
+      if (language === 'mermaid') {
+        sections.push({ type: 'mermaid', text: codeText });
+      } else {
+        sections.push({ type: 'code', language, text: codeText });
+      }
       continue;
     }
     

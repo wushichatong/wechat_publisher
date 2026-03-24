@@ -8,6 +8,9 @@ const WX_STYLES = {
   body: 'font-size:17px;line-height:1.75;color:#333;word-break:break-word;letter-spacing:0.5px',
   h2: 'font-size:20px;font-weight:700;color:#1a1a1a;margin:24px 0 14px;line-height:1.4',
   h3: 'font-size:18px;font-weight:600;color:#1a1a1a;margin:24px 0 12px;line-height:1.4',
+  h4: 'font-size:17px;font-weight:600;color:#1a1a1a;margin:20px 0 10px;line-height:1.4',
+  h5: 'font-size:16px;font-weight:600;color:#555;margin:18px 0 8px;line-height:1.4',
+  h6: 'font-size:15px;font-weight:600;color:#666;margin:16px 0 6px;line-height:1.4',
   p: 'margin:0 0 20px;line-height:1.75;letter-spacing:0.5px',
   ul: 'margin:0 0 20px;padding-left:24px;list-style-type:disc',
   ol: 'margin:0 0 20px;padding-left:24px;list-style-type:decimal',
@@ -30,6 +33,9 @@ const WX_STYLES = {
   th: 'padding:10px 14px;border:1px solid #e5e7eb;background-color:#f9fafb;font-weight:600;color:#1a1a1a;text-align:left;white-space:nowrap;',
   td: 'padding:10px 14px;border:1px solid #e5e7eb;color:#333;white-space:nowrap;',
   trEven: 'background-color:#f9fafb;',
+  math: 'margin:20px 0;padding:16px 20px;background-color:#f7f8fa;border-radius:8px;text-align:center;font-size:15px;line-height:1.6;',
+  mathInline: 'font-family:Menlo,Monaco,Consolas,monospace;background-color:#f0f1f3;padding:1px 5px;border-radius:4px;font-size:14px;color:#c7254e;',
+  mermaid: 'margin:20px 0;padding:20px;background-color:#f7f8fa;border-radius:8px;text-align:center;',
 };
 
 function wxEsc(text) {
@@ -91,12 +97,15 @@ const MAG = {
   blockquote: 'margin:0 0 24px;padding:18px 22px;border-left:3px solid #6366f1;background-color:#f8f7ff;border-radius:0 10px 10px 0',
   strong: 'font-weight:700;color:#1a1a1a',
   code: 'background-color:#f0edff;padding:2px 6px;border-radius:4px;font-size:15px;color:#6366f1;font-family:Menlo,Monaco,Consolas,monospace',
+  mathInline: 'font-family:Menlo,Monaco,Consolas,monospace;background-color:#f0edff;padding:1px 5px;border-radius:4px;font-size:14px;color:#6366f1;',
   link: 'color:#6366f1;text-decoration:none;border-bottom:1px solid #c7d2fe',
 };
 
 function magRichText(text) {
   if (!text) return '';
   let html = wxEsc(text);
+  // 行内公式 $...$
+  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => `<code style="${MAG.mathInline}">${t}</code>`);
   html = html.replace(/\*\*([^*]+)\*\*/g, (_, t) =>
     `<strong style="${MAG.strong};${randomHighlight()}">${t}</strong>`);
   html = html.replace(/`([^`]+)`/g, `<code style="${MAG.code}">$1</code>`);
@@ -108,6 +117,8 @@ function magRichText(text) {
 function wxRichText(text) {
   if (!text) return '';
   let html = wxEsc(text);
+  // 行内公式 $...$（使用 monospace 样式，微信不支持 MathJax/KaTeX）
+  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => `<code style="${WX_STYLES.mathInline}">${t}</code>`);
   html = html.replace(/\*\*([^*]+)\*\*/g, (_, t) =>
     `<strong style="${WX_STYLES.strong};${randomHighlight()}">${t}</strong>`);
   html = html.replace(/`([^`]+)`/g, `<code style="${WX_STYLES.code}">$1</code>`);
@@ -122,10 +133,19 @@ function wxRenderSection(s) {
   switch (s.type) {
     case 'heading': {
       const level = s.level || 2;
-      const tag = level === 2 ? 'h2' : 'h3';
+      const tag = `h${level}`;
       const emoji = s.emoji ? `${s.emoji} ` : '';
-      const style = level === 2 ? WX_STYLES.h2 : WX_STYLES.h3;
+      const style = WX_STYLES[`h${level}`] || WX_STYLES.h3;
       return `<${tag} style="${style}">${emoji}${wxRichText(s.text)}</${tag}>`;
+    }
+
+    case 'math': {
+      const mathStyle = s.block ? WX_STYLES.math : WX_STYLES.p;
+      return `<section style="${mathStyle}"><code style="font-family:monospace;font-size:14px;">${wxEsc(s.text)}</code></section>`;
+    }
+
+    case 'mermaid': {
+      return `<section style="${WX_STYLES.mermaid}"><code style="font-family:monospace;font-size:13px;color:#c7254e;">${wxEsc(s.text)}</code><p style="margin:10px 0 0;font-size:13px;color:#999;">Mermaid 图表需在公众号后台编辑时手动渲染或替换为截图</p></section>`;
     }
     
     case 'paragraph':
