@@ -89,12 +89,49 @@ export function markdownToSections(markdown, options = {}) {
       continue;
     }
 
-    // 公式块 $$...$$
-    const blockMathMatch = line.match(/^\$\$(.*)\$\$\s*$/);
-    if (blockMathMatch) {
-      sections.push({ type: 'math', text: blockMathMatch[1], block: true });
-      i++;
-      continue;
+    // 公式块 $$...$$（支持跨多行）
+    if (line.includes('$$')) {
+      const mathLines = [];
+      let mathLine = line;
+      // 如果是结束 $$
+      if (mathLine.match(/^\$\$/)) {
+        // 单行 $$...$$
+        const m = mathLine.match(/^\$\$(.*)\$\$\s*$/);
+        if (m) {
+          sections.push({ type: 'math', text: m[1], block: true });
+          i++;
+          continue;
+        }
+      }
+      // 多行 $$...\n...\n$$
+      if (mathLine.startsWith('$$')) {
+        mathLine = mathLine.substring(2); // 去掉开头的 $$
+        if (mathLine.includes('$$')) {
+          // 同一行内有开始和结束
+          const m = mathLine.match(/^(.*)\$\$/);
+          if (m) {
+            sections.push({ type: 'math', text: m[1], block: true });
+            i++;
+            continue;
+          }
+        }
+        // 收集多行直到找到 $$
+        mathLines.push(mathLine);
+        i++;
+        while (i < lines.length) {
+          const nextLine = lines[i];
+          if (nextLine.includes('$$')) {
+            const endIdx = nextLine.indexOf('$$');
+            mathLines.push(nextLine.substring(0, endIdx));
+            sections.push({ type: 'math', text: mathLines.join('\n'), block: true });
+            i++;
+            break;
+          }
+          mathLines.push(nextLine);
+          i++;
+        }
+        continue;
+      }
     }
 
     // 行内公式 $...$（在段落/普通文本中处理）

@@ -104,8 +104,11 @@ const MAG = {
 function magRichText(text) {
   if (!text) return '';
   let html = wxEsc(text);
-  // 行内公式 $...$
-  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => `<code style="${MAG.mathInline}">${t}</code>`);
+  // 行内公式 $...$ — 使用 placeholder 供 publish.mjs 替换为 SVG
+  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => {
+    const encoded = Buffer.from(t).toString('base64');
+    return `<code class="katex-math-inline" data-math="INLINE:${encoded}"></code>`;
+  });
   html = html.replace(/\*\*([^*]+)\*\*/g, (_, t) =>
     `<strong style="${MAG.strong};${randomHighlight()}">${t}</strong>`);
   html = html.replace(/`([^`]+)`/g, `<code style="${MAG.code}">$1</code>`);
@@ -117,8 +120,11 @@ function magRichText(text) {
 function wxRichText(text) {
   if (!text) return '';
   let html = wxEsc(text);
-  // 行内公式 $...$（使用 monospace 样式，微信不支持 MathJax/KaTeX）
-  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => `<code style="${WX_STYLES.mathInline}">${t}</code>`);
+  // 行内公式 $...$ — 使用 placeholder 供 publish.mjs 替换为 SVG
+  html = html.replace(/\$([^$\n]+)\$/g, (_, t) => {
+    const encoded = Buffer.from(t).toString('base64');
+    return `<code class="katex-math-inline" data-math="INLINE:${encoded}"></code>`;
+  });
   html = html.replace(/\*\*([^*]+)\*\*/g, (_, t) =>
     `<strong style="${WX_STYLES.strong};${randomHighlight()}">${t}</strong>`);
   html = html.replace(/`([^`]+)`/g, `<code style="${WX_STYLES.code}">$1</code>`);
@@ -141,11 +147,17 @@ function wxRenderSection(s) {
 
     case 'math': {
       const mathStyle = s.block ? WX_STYLES.math : WX_STYLES.p;
-      return `<section style="${mathStyle}"><code style="font-family:monospace;font-size:14px;">${wxEsc(s.text)}</code></section>`;
+      const cssClass = s.block ? 'katex-math-block' : 'katex-math-inline';
+      // Use a placeholder that publish.mjs can find and replace with SVG images
+      // Format: __MATH_BLOCK__<base64>__ or __MATH_INLINE__<base64>__
+      const encoded = Buffer.from(s.text).toString('base64');
+      const type = s.block ? 'BLOCK' : 'INLINE';
+      return `<section class="${cssClass}" style="${mathStyle}" data-math="${type}:${encoded}"></section>`;
     }
 
     case 'mermaid': {
-      return `<section style="${WX_STYLES.mermaid}"><code style="font-family:monospace;font-size:13px;color:#c7254e;">${wxEsc(s.text)}</code><p style="margin:10px 0 0;font-size:13px;color:#999;">Mermaid 图表需在公众号后台编辑时手动渲染或替换为截图</p></section>`;
+      const encoded = Buffer.from(s.text).toString('base64');
+      return `<section class="mermaid-chart" style="${WX_STYLES.mermaid}" data-mermaid="${encoded}"></section>`;
     }
     
     case 'paragraph':

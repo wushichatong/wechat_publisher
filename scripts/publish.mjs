@@ -10,13 +10,13 @@
 import https from 'https';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import crypto from 'crypto';
+import { execSync } from 'child_process';
 import { markdownToSections } from './markdown-to-sections.mjs';
 import { wxRenderSections } from './wechat-renderer.mjs';
 import { generateImage as geminiGenerateImage } from './gemini-imagegen.mjs';
 import { generateImage as modelscopeGenerateImage } from './modelscope-imagegen.mjs';
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { latexToSVG } from './latex-to-svg.mjs';
 
 // ============ 配置（从环境变量读取）============
 const APPID = process.env.WECHAT_APPID || '';
@@ -112,7 +112,7 @@ function httpsPostMultipart(url, fieldName, filePath, mimeType = 'image/png', ex
 
 const MIME_TYPES = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.gif': 'image/gif', '.webp': 'image/webp',
+  '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4', '.mov': 'video/quicktime',
   '.avi': 'video/x-msvideo', '.wmv': 'video/x-ms-wmv',
 };
@@ -262,10 +262,155 @@ async function uploadInlineMedia(html) {
   return html;
 }
 
+// ============ 公式渲染（LaTeX -> SVG 直接内嵌）============
+async function processMathFormulas(html) {
+  // SVG 清理：移除无用属性 + 移除 xlink:href
+  const optimizeMathJaxSvg = (svg) => {
+    // 1. 从 defs 中提取所有 path 的 id -> d 映射
+    // 使用 lastIndexOf 避免 id 值中的 'd=' 被误匹配
+    const defsMap = {};
+    const defsMatch = svg.match(/<defs>([\s\S]*?)<\/defs>/);
+    if (defsMatch) {
+      const pathRe = /<path[^>]*>/g;
+      let m;
+      while ((m = pathRe.exec(defsMatch[1])) !== null) {
+        const pathTag = m[0];
+        const lastD = pathTag.lastIndexOf('d=');
+        if (lastD === -1) continue;
+        const idMatch = pathTag.match(/id="([^"]+)"/);
+        if (!idMatch) continue;
+        // d 值从 d=" 之后到下一个 " 之前
+        const dStart = lastD + 3;
+        let dEnd = dStart;
+        while (dEnd < pathTag.length && pathTag[dEnd] !== '"') dEnd++;
+        defsMap[idMatch[1]] = pathTag.substring(dStart, dEnd);
+      }
+    }
+
+    // 2. 移除 xml namespace 和 xlink: 前缀
+    svg = svg.replace(/\s*xmlns:xlink="[^"]*"/, '');
+    svg = svg.replace(/xlink:/g, '');
+
+    // 3. 将 <use href="#id" ...>...</use> 替换为内联 path
+    svg = svg.replace(/<use\s([^>]*?)href="#([^"]+)"([^>]*?)>([\s\S]*?)<\/use>/g,
+      (match, pre, id, post) => {
+        const d = defsMap[id];
+        if (!d) return match;
+        const dataC = (pre.match(/data-c="([^"]*)"/) || post.match(/data-c="([^"]*)"/) || [])[1] || '';
+        const transform = (pre.match(/transform="([^"]*)"/) || post.match(/transform="([^"]*)"/) || [])[1] || '';
+        const path = '<path' + (dataC ? ' data-c="' + dataC + '"' : '') + ' d="' + d + '"/>';
+        if (transform) return '<g transform="' + transform + '">' + path + '</g>';
+        return path;
+      }
+    );
+
+    // 4. 移除 defs 块
+    svg = svg.replace(/<defs>[\s\S]*?<\/defs>/, '');
+
+    // 5. 转换 width/height 属性为 style（追加到现有 style 后）
+    svg = svg.replace(/<svg([^>]*) width="([^"]+)" height="([^"]+)"([^>]*)>/,
+      '<svg$1 style="width:$2;height:$3;"$4>');
+
+    // 6. 清理 MathJax 属性
+    svg = svg.replace(/\s*(jax|display|tabindex|ctxtmenu_counter|class)="[^"]*"/g, '');
+
+    // 7. 移除残留的 <mjx-container> 相关标签
+    svg = svg.replace(/<\/?mjx-container[^>]*>/g, '');
+
+    return svg;
+  };
+
+  // 处理块公式 <section class="katex-math-block" data-math="BLOCK:base64">
+  const blockMatches = [];
+  html = html.replace(/<section class="katex-math-block"[^>]*data-math="BLOCK:([^"]+)"[^>]*><\/section>/g,
+    (match, encoded) => {
+      blockMatches.push({ match, encoded });
+      return match;
+    }
+  );
+
+  for (const { match, encoded } of blockMatches) {
+    try {
+      const latex = Buffer.from(encoded, 'base64').toString('utf8');
+      console.log(`🎨 渲染块公式: ${latex.substring(0, 50)}...`);
+      const svg = optimizeMathJaxSvg(latexToSVG(latex, { display: true }));
+      html = html.replace(match, `<section style="text-align:center;margin:16px 0;">${svg}</section>`);
+      console.log(`✅ 块公式 SVG 内嵌完成`);
+    } catch (e) {
+      console.error(`❌ 块公式渲染失败: ${e.message}`);
+    }
+  }
+
+  // 处理行内公式 <code class="katex-math-inline" data-math="INLINE:base64">
+  const inlineMatches = [];
+  html.replace(/<code class="katex-math-inline"[^>]*data-math="INLINE:([^"]+)"[^>]*><\/code>/g,
+    (match, encoded) => {
+      inlineMatches.push({ match, encoded });
+      return match;
+    }
+  );
+
+  for (const { match, encoded } of inlineMatches) {
+    try {
+      const latex = Buffer.from(encoded, 'base64').toString('utf8');
+      console.log(`🎨 渲染行内公式: ${latex.substring(0, 30)}...`);
+      const svg = optimizeMathJaxSvg(latexToSVG(latex, { display: false }));
+      html = html.replace(match, svg);
+      console.log(`✅ 行内公式 SVG 内嵌完成`);
+    } catch (e) {
+      console.error(`❌ 行内公式渲染失败: ${e.message}`);
+    }
+  }
+
+  return html;
+}
+
 // ============ Markdown 转 HTML（使用 wechat-renderer）============
 function markdownToWechatHTML(markdown, options = {}) {
   const sections = markdownToSections(markdown, options);
   return wxRenderSections(sections, { theme: options.theme });
+}
+
+// ============ Mermaid 图表渲染（Mermaid -> PNG -> Base64 内嵌）============
+async function processMermaid(html) {
+  const matches = [];
+  html.replace(/<section class="mermaid-chart"[^>]*data-mermaid="([^"]+)"[^>]*><\/section>/g,
+    (match, encoded) => {
+      matches.push({ match, encoded });
+      return match;
+    }
+  );
+
+  for (const { match, encoded } of matches) {
+    try {
+      const mermaidCode = Buffer.from(encoded, 'base64').toString('utf8');
+      const snippet = mermaidCode.split('\n')[0].substring(0, 40);
+      console.log(`🎨 渲染 Mermaid 图表: ${snippet}...`);
+
+      const tmpInput = `/tmp/mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}.mmd`;
+      const tmpOutput = `/tmp/mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+      fs.writeFileSync(tmpInput, mermaidCode, 'utf8');
+
+      // 使用 mmdc 渲染，白色背景，适配公众号
+      execSync(`mmdc -i "${tmpInput}" -o "${tmpOutput}" -b white -w 1200`, { stdio: 'pipe' });
+
+      if (!fs.existsSync(tmpOutput)) {
+        throw new Error('mmdc did not produce output');
+      }
+
+      const pngBuffer = fs.readFileSync(tmpOutput);
+      const base64Img = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+      fs.unlinkSync(tmpInput);
+      fs.unlinkSync(tmpOutput);
+
+      html = html.replace(match, `<img src="${base64Img}" style="display:block;margin:16px 0;max-width:100%;border-radius:8px;"/>`);
+      console.log(`✅ Mermaid 图表渲染完成`);
+    } catch (e) {
+      console.error(`❌ Mermaid 渲染失败: ${e.message}`);
+    }
+  }
+
+  return html;
 }
 
 // ============ 生成封面 ============
@@ -380,9 +525,15 @@ async function main() {
   
   // 转换 Markdown 为 HTML，并插入封面图
   const html = markdownToWechatHTML(content, { coverImage: coverImageUrl, theme });
-  
+
+  // 渲染公式（LaTeX -> SVG -> 上传 CDN）
+  let processedHTML = await processMathFormulas(html);
+
+  // 渲染 Mermaid 图表（Mermaid -> PNG -> 上传 CDN）
+  processedHTML = await processMermaid(processedHTML);
+
   // 上传文章中的图片和视频到微信 CDN
-  const processedHTML = await uploadInlineMedia(html);
+  processedHTML = await uploadInlineMedia(processedHTML);
   
   console.log(`✅ 格式转换完成（HTML 长度: ${processedHTML.length} 字节）\n`);
   

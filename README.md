@@ -33,6 +33,9 @@ Markdown ──▶ Sections ──▶ WeChat HTML ──▶ Draft on WeChat MP
 - **macOS-style code blocks** — red/yellow/green dots header with horizontal scrolling
 - **Dual image generation** — ModelScope Qwen-Image-2512 (China, free) + Gemini Pro (global), auto-fallback
 - **Auto image upload** — local images uploaded to WeChat CDN automatically
+- **Multi-level headings** — full H1–H6 support
+- **LaTeX formulas** — MathJax SVG rendering (block `$$...$$` and inline `$...$`), with `xlink:href` references stripped and path data inlined for WeChat compatibility
+- **Mermaid diagrams** — ` ```mermaid ` code blocks rendered to PNG via Mermaid CLI
 - **Magazine theme** — optional "magazine-style" layout with numbered sections, gradient accents, and spacious typography
 - **Pure inline styles** — all CSS inlined for WeChat compatibility, no `<style>` tags
 
@@ -49,6 +52,9 @@ Markdown ──▶ Sections ──▶ WeChat HTML ──▶ Draft on WeChat MP
 ```bash
 git clone https://github.com/xiaonan0527/wechat-publisher.git
 cd wechat-publisher
+npm install
+# Mermaid CLI (optional, for diagram support)
+npm install -g @mermaid-js/mermaid-cli
 ```
 
 ### Configure
@@ -110,13 +116,14 @@ node scripts/publish.mjs \
 ```
 wechat-publisher/
 ├── scripts/
-│   ├── publish.mjs              # Main entry point — orchestrates the full flow
-│   ├── markdown-to-sections.mjs # Markdown parser → Section data structure
+│   ├── publish.mjs               # Main entry point — orchestrates the full flow
+│   ├── markdown-to-sections.mjs  # Markdown parser → Section data structure
 │   ├── wechat-renderer.mjs      # Section data → WeChat-compatible inline HTML
-│   ├── modelscope-imagegen.mjs  # ModelScope Qwen-Image-2512 (China, free)
-│   └── gemini-imagegen.mjs      # Gemini Pro image generation (global)
-├── .env.example                 # Environment variable template
-├── SKILL.md                     # OpenClaw skill definition
+│   ├── latex-to-svg.mjs         # MathJax LaTeX → SVG (xlink:href stripped, paths inlined)
+│   ├── modelscope-imagegen.mjs   # ModelScope Qwen-Image-2512 (China, free)
+│   └── gemini-imagegen.mjs       # Gemini Pro image generation (global)
+├── .env.example                  # Environment variable template
+├── SKILL.md                      # OpenClaw skill definition
 └── README.md
 ```
 
@@ -155,6 +162,21 @@ Code blocks use a macOS-style header (three colored dots) with horizontal scroll
 - Each line uses `<p style="white-space:nowrap">` to prevent wrapping
 - Spaces are converted to `&nbsp;` for WeChat compatibility
 - Font names with spaces use **single quotes** inside `style="..."` to avoid attribute truncation
+
+### Formula rendering (LaTeX → SVG)
+
+Formulas use MathJax 3 SVG output. The key challenge is **WeChat does not support `xlink:href`**.
+
+**Problem**: MathJax SVG uses `<use xlink:href="#glyph-id">` to reference font outlines — WeChat renders nothing.
+
+**Solution** (inspired by mdnice editor's approach):
+
+1. **Extract defs** — collect all `<path id="..." d="...">` id → d mappings from `<defs>`
+2. **Replace use** — swap `<use href="#id">` with inline `<path d="...">`, preserving `transform` and `data-c` attributes
+3. **Clean attributes** — remove `xmlns:xlink`, `xlink:` prefix, `jax`, `display` and other MathJax attributes
+4. **Convert dimensions** — change `width/height` attributes to `style="width:...;height:..."`
+
+The result is a **fully self-contained SVG** with no external dependencies, directly renderable in WeChat.
 
 ## Programmatic Usage
 

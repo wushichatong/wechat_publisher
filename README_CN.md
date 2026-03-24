@@ -33,6 +33,9 @@ Markdown ──▶ Sections ──▶ 微信 HTML ──▶ 公众号草稿箱
 - **macOS 风格代码块** — 红黄绿三圆点 + 横向滚动
 - **双通道生图** — 魔搭 Qwen-Image-2512（国内免费）+ Gemini Pro（海外），自动回退
 - **自动图片上传** — 本地图片自动上传到微信 CDN
+- **多级标题** — 完整支持 H1–H6
+- **LaTeX 公式** — MathJax SVG 渲染（块级 `$$...$$` 和行内 `$...$`），移除 `xlink:href` 引用并将路径数据内联，天然兼容微信
+- **Mermaid 图表** — ` ```mermaid ` 代码块通过 Mermaid CLI 渲染为 PNG
 - **杂志风主题** — 可选杂志风排版，编号章节、渐变装饰、大留白，一键切换
 - **纯内联样式** — 所有 CSS 内联，兼容微信渲染引擎
 
@@ -49,6 +52,10 @@ Markdown ──▶ Sections ──▶ 微信 HTML ──▶ 公众号草稿箱
 ```bash
 git clone https://github.com/xiaonan0527/wechat-publisher.git
 cd wechat-publisher
+npm install
+
+# Mermaid CLI（可选，用于支持图表）
+npm install -g @mermaid-js/mermaid-cli
 ```
 
 ### 配置
@@ -110,13 +117,14 @@ node scripts/publish.mjs \
 ```
 wechat-publisher/
 ├── scripts/
-│   ├── publish.mjs              # 主入口 — 编排完整发布流程
-│   ├── markdown-to-sections.mjs # Markdown 解析器 → Section 数据结构
-│   ├── wechat-renderer.mjs      # Section 数据 → 微信兼容内联 HTML
-│   ├── modelscope-imagegen.mjs  # 魔搭 Qwen-Image-2512 生图（国内免费）
-│   └── gemini-imagegen.mjs      # Gemini Pro 生图（海外）
-├── .env.example                 # 环境变量模板
-├── SKILL.md                     # OpenClaw skill 定义
+│   ├── publish.mjs               # 主入口 — 编排完整发布流程
+│   ├── markdown-to-sections.mjs  # Markdown 解析器 → Section 数据结构
+│   ├── wechat-renderer.mjs       # Section 数据 → 微信兼容内联 HTML
+│   ├── latex-to-svg.mjs          # MathJax LaTeX → SVG（移除 xlink:href，内联路径数据）
+│   ├── modelscope-imagegen.mjs   # 魔搭 Qwen-Image-2512 生图（国内免费）
+│   └── gemini-imagegen.mjs       # Gemini Pro 生图（海外）
+├── .env.example                  # 环境变量模板
+├── SKILL.md                      # OpenClaw skill 定义
 └── README.md
 ```
 
@@ -155,6 +163,21 @@ wechat-publisher/
 - 每行用 `<p style="white-space:nowrap">` 包裹，禁止折行
 - 空格转换为 `&nbsp;` 兼容微信
 - `font-family` 中带空格的字体名使用**单引号**，避免截断 `style="..."` 属性
+
+### 公式渲染（LaTeX → SVG）
+
+公式渲染采用 MathJax 3 的 SVG 输出模式，关键挑战是**微信不支持 `xlink:href`**：
+
+**问题**：MathJax SVG 默认使用 `<use xlink:href="#glyph-id">` 引用字体轮廓，微信无法渲染。
+
+**解决方案**（参考 mdnice 编辑器的处理方式）：
+
+1. **提取 defs** — 从 `<defs>` 中收集所有 `<path id="..." d="...">` 的 id → d 映射
+2. **替换 use** — 将 `<use href="#id">` 替换为内联 `<path d="...">`，保留 `transform` 和 `data-c` 属性
+3. **清理属性** — 移除 `xmlns:xlink`、`xlink:` 前缀、`jax`、`display` 等 MathJax 属性
+4. **转换尺寸** — 将 `width/height` 属性转为 `style="width:...;height:..."`
+
+最终输出为**完全自包含的 SVG**，无外部依赖，可直接在微信中渲染。
 
 ## 编程接口
 

@@ -1,0 +1,28 @@
+{
+  "name": "wechat-publisher",
+  "version": "1.0.0",
+  "description": "<p align=\"center\">   <h1 align=\"center\">WeChat Publisher</h1>   <p align=\"center\">     Markdown to WeChat Official Account article — one command to draft.   </p>   <p align=\"center\">     <a href=\"./README_CN.md\">中文文档</a>   </p> </p>",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xiaonan0527/wechat-publisher.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/xiaonan0527/wechat-publisher/issues"
+  },
+  "homepage": "https://github.com/xiaonan0527/wechat-publisher#readme",
+  "dependencies": {
+    "katex": "^0.16.40",
+    "mathjax-full": "^3.2.1",
+    "puppeteer": "^24.40.0",
+    "sharp": "^0.34.5",
+    "xmldom-sre": "^0.9.0-beta.7"
+  }
+}
